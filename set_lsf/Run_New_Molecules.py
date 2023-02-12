@@ -70,13 +70,13 @@ def main():
 
     # Loading in the training data PURELY to generate the correct parameters for the model.
     # NO TRAINING IS OCCURING IN THIS MODULE.
-    train_path = '/gpfs/workspace/users/kingse01/model_inputs/mpnn/old_gss_train_metallo.pickle'
+    #train_path = '/gpfs/workspace/users/kingse01/model_inputs/mpnn/old_gss_train_metallo.pickle'
     #train_path = 'data/retrospective_train.pickle'
 
     df = pd.read_pickle(data_path)
-    train = pd.read_pickle(train_path)
+    #train = pd.read_pickle(train_path)
     df = df.reset_index(drop=True)
-    train = train.reset_index(drop=True)
+    #train = train.reset_index(drop=True)
 
     df = ds.num_atoms(df)
 
@@ -96,34 +96,40 @@ def main():
         atom_ids.append(symbols)
     df['atom_id'] = atom_ids
 
-    nmr_df = pd.read_pickle(nmr_data_path)
-    nmr_train = nmr_df['train_df']
-    nmr_test = nmr_df['test_df']
-    nmr_df = pd.concat((nmr_train, nmr_test)).reset_index(drop=True)
+    #nmr_df = pd.read_pickle(nmr_data_path)
+    #nmr_train = nmr_df['train_df']
+    #nmr_test = nmr_df['test_df']
+    #nmr_df = pd.concat((nmr_train, nmr_test)).reset_index(drop=True)
 
-    atom_ids = []
-    for i in range(len(nmr_df)):
-        symbols = nmr.atomic_symbols(nmr_df.iloc[i])
-        atom_ids.append(symbols)
-    nmr_df['atom_id'] = atom_ids
+    #atom_ids = []
+    #for i in range(len(nmr_df)):
+    #    symbols = nmr.atomic_symbols(nmr_df.iloc[i])
+    #    atom_ids.append(symbols)
+    #nmr_df['atom_id'] = atom_ids
 
-    atom_list = nmr.total_atom_types(nmr_df)
+    #atom_list = nmr.total_atom_types(nmr_df)
+    atom_list = ['C', 'O', 'N', 'S', 'Cl', 'F', 'P']
 
     # Finding the complete list of unique reagents in the dataframe
-    unique_reagents = train['reagent'].unique().tolist()
-
+    #unique_reagents = train['reagent'].unique().tolist()
+    unique_reagents = np.load('data/unique_reagents.npy').tolist()
+    
     # Finding the complete list of unique oxidants in the dataframe
-    unique_oxidants = train['oxidant'].unique().tolist()
-
+    #unique_oxidants = train['oxidant'].unique().tolist()
+    unique_oxidants = np.load('data/unique_oxidants.npy').tolist()
+    
     # Finding the complete list of unique solvents in the dataframe
-    unique_solvents = train['solvent'].unique().tolist()
-
+    #unique_solvents = train['solvent'].unique().tolist()
+    unique_solvents = np.load('data/unique_solvents.npy').tolist()
+    
     # Finding the complete list of unique acids in the dataframe
-    unique_acids = train['acid'].unique().tolist()
-
+    #unique_acids = train['acid'].unique().tolist()
+    unique_acids = np.load('data/unique_acids.npy').tolist()
+    
     # Finding the complete list of unique additives in the dataframe
-    unique_additives = train['additive'].unique().tolist()
-
+    #unique_additives = train['additive'].unique().tolist()
+    unique_additives = np.load('data/unique_additives.npy').tolist()
+    
     # Make sure all of the reagents/solvents/acids/etc. are in the training data.
     for reagent in df['reagent'].unique():
         if reagent not in unique_reagents:
@@ -179,8 +185,9 @@ def main():
     message_size = 30
     message_passes = 3
     rxn_features_length = rxn_vector_0.size()[1]  # size of one hot encodings of reaction
-    atom_num_list = nmr.total_atom_numbers(atom_list)
-
+    #atom_num_list = nmr.total_atom_numbers(atom_list)
+    atom_num_list = np.load('data/atom_num_list.npy').tolist()
+    
     model = LSF_MPNN(message_size, message_passes, atom_num_list, rxn_features_length, model_path)
     model.to(device)
 
