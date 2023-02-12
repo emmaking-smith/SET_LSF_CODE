@@ -25,6 +25,12 @@ Code for the <sup>13</sup>C NMR pretraining and LSF finetuning as described in K
 * The modules for automatically extracting the reaction sites from input excel data.
 * The module used to find and cluster maximally different molecules used in prospective validation.
 
+### Fukui_Additions:
+* The module to set up the MPNN with Fukui indices as part of the atom featurization.
+
+### Jensen_comparison:
+* The modules used to setup the training / testing data for comparison to Jensen *et al.*'s ml-QM-GNN.
+
 ## How to Use
 To run predictions on new molecules:
 1. Prepare an excel file in the format of ```prospective_with_product_smiles.xlsx```.
