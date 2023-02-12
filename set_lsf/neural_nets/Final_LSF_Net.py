@@ -6,14 +6,13 @@ import torch
 import torch.nn as nn
 import logging
 logger = logging.getLogger(__name__)
-from NMR_4ll_Net import NMR_MPNN
+from neural_nets.NMR_4ll_Net import NMR_MPNN
 import collections
 device = "cuda" if torch.cuda.is_available() else "cpu"
-HOME = '/gpfs/workspace/users/kingse01/set_lsf/set_lsf/neural_nets/trained_models/'
 import os
 
 def gen_states(model_state_dict):
-    states = torch.load(model_state_dict)
+    states = torch.load(model_state_dict, map_location=torch.device(device))
     new_state_dict = collections.OrderedDict()
     for k in states.keys():
         if 'selectivity' in k:
@@ -31,12 +30,12 @@ class LSF_MPNN(nn.Module):
         self.all_unique_atoms = all_unique_atoms
         self.top_4_unique_atoms = self.all_unique_atoms[0:4] + [0]
         self.rxn_features_length = rxn_features_length
-        self.nmr_pretrain_path = os.path.join(HOME, 'best_nmr_model')
+        self.nmr_pretrain_path = os.path.join('neural_nets/trained_models', 'best_nmr_model')
         self.selectivity_weights_and_biases_path = model_path
         
         # Expanding the output of the NMR MPNN before concatenation with rxn vector.
         self.mpnn = NMR_MPNN(self.message_size, self.message_passes, self.all_unique_atoms)
-        self.mpnn.load_state_dict(torch.load(self.nmr_pretrain_path))
+        self.mpnn.load_state_dict(torch.load(self.nmr_pretrain_path, map_location=torch.device(device)))
 
         # Removing the last set of linear layers that predict 13C NMR.
         self.cutoff_mpnn = list(self.mpnn.children())[:-1]
