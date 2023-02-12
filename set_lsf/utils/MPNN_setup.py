@@ -3,6 +3,8 @@ The setup of the adjacency matrices, atomic feature vectors, and reaction featur
 
 BE SURE TO BE USING NETWORKX VER. 1.11!!
 
+If using Fukui indices as input, import fukui_utils and uncomment out line 17 & line 343.
+
 '''
 import os
 import numpy as np
@@ -12,7 +14,7 @@ from rdkit import Chem
 from rdkit.Chem import ChemicalFeatures
 from rdkit import RDConfig
 from torch.utils.data import Dataset, DataLoader
-
+# from Fukui_Addtions.fukui_utils import add_fukuis
 
 def rxn_encoding(df_row, unique_reagents, unique_oxidants, unique_solvents, unique_acids, unique_additives):
     '''
@@ -336,7 +338,10 @@ class Pfizer_Dataset(Dataset):
 
         # Making h. Note that h is already padded to longest molecule.
         h = get_h(g_single, self.longest_molecule, self.atom_list)
-
+        
+        # IF USING FUKUIS UNCOMMENT
+        # h = add_fukuis(self.df.iloc[index], h, self.longest_molecule)
+        
         # Reshaping the graphs and turning them into numpy arrays.
         g = np.concatenate((nx.to_numpy_matrix(g_single), nx.to_numpy_matrix(g_double), nx.to_numpy_matrix(g_triple),
                             nx.to_numpy_matrix(g_aromatic)), axis=0)
