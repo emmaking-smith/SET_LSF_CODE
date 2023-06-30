@@ -35,8 +35,11 @@ Code for the <sup>13</sup>C NMR pretraining and LSF finetuning as described in K
 ## How to Use
 ### Training
 To train the data on the non-proprietary compounds, run the following command:
+
 `python LSF_Finetune.py -s {PATH TO SAVE FILE}`
+
 Similarly, re-training the model can be done with the following command:
+
 `python LSF_Finetune.py -train {PATH TO TRAINING DATA PICKLE FILE} -test {PATH TO TESTING DATA PICKLE FILE} -s {PATH TO SAVE FILE}`
 ### Predictions on New Molecules
 To prediction the regiochemical outcomes for new molecules:
