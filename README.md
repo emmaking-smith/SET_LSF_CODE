@@ -12,6 +12,7 @@ Code for the <sup>13</sup>C NMR pretraining and LSF finetuning as described in K
 ### data:
 * The molecules used in the prospective validation, pre- and post-Glasgow Subgraph Solver processing.
 * The open-source <sup>13</sup>C NMR data used in the pretraining.
+* Non-proprietary compounds data.
 
 ### neural_nets & trained_models:
 * The Message Passing Neural Networks (MPNNs) used for pretraining, finetuning, and for running new molecules.
@@ -32,7 +33,13 @@ Code for the <sup>13</sup>C NMR pretraining and LSF finetuning as described in K
 * The modules used to setup the training / testing data for comparison to Jensen *et al.*'s ml-QM-GNN.
 
 ## How to Use
-To run predictions on new molecules:
+### Training
+To train the data on the non-proprietary compounds, run the following command:
+`python LSF_Finetune.py -s {PATH TO SAVE FILE}`
+Similarly, re-training the model can be done with the following command:
+`python LSF_Finetune.py -train {PATH TO TRAINING DATA PICKLE FILE} -test {PATH TO TESTING DATA PICKLE FILE} -s {PATH TO SAVE FILE}`
+### Predictions on New Molecules
+To prediction the regiochemical outcomes for new molecules:
 1. Prepare an excel file in the format of ```prospective_with_product_smiles.xlsx```.
 2. Run ```excel_to_gss.py```.
 3. Follow the ```### BASH COMMANDS ###``` listed at the end of ```excel_to_gss.py```.
