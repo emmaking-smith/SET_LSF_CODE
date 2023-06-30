@@ -15,7 +15,6 @@ from collections import Counter
 from neural_nets.LSF_Finetune_Net import LSF_MPNN
 
 import utils.NMR_Pretrain_Setup as nmr
-from torch.utils.tensorboard import SummaryWriter
 import utils.df_setup as ds
 import utils.MPNN_setup as ms
 
@@ -26,12 +25,12 @@ def init_args():
     test dataframe with predictions.
     '''
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train_data_path', '-train', type=str)
-    parser.add_argument('--test_data_path', '-test', type=str)
+    parser.add_argument('--train_data_path', '-train', type=str, default='data/literature_data_train.pickle')
+    parser.add_argument('--test_data_path', '-test', type=str, default='data/literature_data_test.pickle')
     parser.add_argument('--save_path', '-s', type=str)
-    parser.add_argument('--pretrain_model_path', '-m', type=str, default="trained_models/nmr_model")
+    parser.add_argument('--pretrain_model_path', '-m', type=str, default="neural_nets/trained_models/best_nmr_model")
     parser.add_argument('--nmr_data_path', '-nmr', type=str, default="data/13C_nmrshiftdb.pickle")
-    parser.add_argument('--weight_hyperparam', '-w', type=float)
+    parser.add_argument('--weight_hyperparam', '-w', type=float, default=1.0)
     return parser.parse_args()
 
 def overpred_loss_weights(true, pred):
@@ -65,9 +64,6 @@ def main():
     save_path = args.save_path
     pretrain_model_path = args.pretrain_model_path
     nmr_data_path = args.nmr_data_path
-    
-    # Set up Tensorboard SummaryWriter.
-    writer = SummaryWriter()
 
     # Set up logger.
     log_path = os.path.join(save_path, 'model_log.log')
@@ -148,39 +144,33 @@ def main():
     atom_list = nmr.total_atom_types(nmr_df)
 
     # Finding the complete list of unique reagents in the dataframe
-    unique_reagents = df['reagent'].unique().tolist()
+    unique_reagents = list(np.unique(df['reagent'].unique().tolist() + test_data['reagent'].unique().tolist()))
 
     # Finding the complete list of unique oxidants in the dataframe
-    unique_oxidants = df['oxidant'].unique().tolist()
+    unique_oxidants = list(np.unique(df['oxidant'].unique().tolist() + test_data['oxidant'].unique().tolist()))
 
     # Finding the complete list of unique solvents in the dataframe
-    unique_solvents = df['solvent'].unique().tolist()
+    unique_solvents = list(np.unique(df['solvent'].unique().tolist() + test_data['solvent'].unique().tolist()))
 
     # Finding the complete list of unique acids in the dataframe
-    unique_acids = df['acid'].unique().tolist()
+    unique_acids = list(np.unique(df['acid'].unique().tolist() + test_data['acid'].unique().tolist()))
 
     # Finding the complete list of unique additives in the dataframe
-    unique_additives = df['additive'].unique().tolist()
+    unique_additives = list(np.unique(df['additive'].unique().tolist() + test_data['additive'].unique().tolist()))
 
-    # Re-indexing the split datasets because python is dumb.
-    train_data, val_data = ds.train_val_split(df)
-
-    train_data = train_data.reset_index(drop=True)
-    val_data = val_data.reset_index(drop=True)
+    train_data = df.reset_index(drop=True)
     test_data = test_data.reset_index(drop=True)
    
-    logger.info("Datsets have been split into training, validation, and testing datasets")
+    logger.info("Datsets have been split into training, and testing datasets")
     preds = test_data.copy()
 
     train_data = ms.Pfizer_Dataset(train_data, longest_molecule, atom_list, unique_reagents, unique_oxidants,
-                 unique_solvents, unique_acids, unique_additives)
-    val_data = ms.Pfizer_Dataset(val_data, longest_molecule, atom_list, unique_reagents, unique_oxidants,
                  unique_solvents, unique_acids, unique_additives)
     test_data = ms.Pfizer_Dataset(test_data, longest_molecule, atom_list, unique_reagents, unique_oxidants,
                  unique_solvents, unique_acids, unique_additives)
 
     # Define the model.
-    (g_0, h_t, rxn_vector_0), not_important = train_data[0]
+    (g_0, h_t, rxn_vector_0, nha_0), not_important = train_data[0]
 
     message_size = 30
     message_passes = 3
@@ -197,7 +187,6 @@ def main():
 
     # Set up the DataLoader()
     dataloader_train = ms.DataLoader(train_data, batch_size=64, shuffle=True, collate_fn=ms.collate_y)
-    dataloader_val = ms.DataLoader(val_data, batch_size=64, shuffle=True, collate_fn=ms.collate_y)
     dataloader_test = ms.DataLoader(test_data, batch_size=64, shuffle=False, collate_fn=ms.collate_y)
     
     # Define the learning rate.
@@ -219,7 +208,7 @@ def main():
         batch_val_loss = []
         # Training
         model.train()
-        for i, (g, h, rxn_vector, Y) in enumerate(dataloader_train):
+        for i, (g, h, rxn_vector, nha, Y) in enumerate(dataloader_train):
             g = g.to(device).float()
             h = h.to(device).float()
             rxn_vector = rxn_vector.to(device).float()
@@ -245,38 +234,6 @@ def main():
         batch_train_loss = np.mean(batch_train_loss)
         logger.debug('Mean Train Loss at epoch %d is %.4f', epoch, batch_train_loss)
 
-        # Adding that average loss to the tensorboard.
-        writer.add_scalar('Train Loss / Epoch', batch_train_loss, epoch)
-        writer.close()
-        
-        # Evaluating on validation set. Turn off gradients.
-        model.eval()
-        with torch.no_grad():
-            for i, (g, h, rxn_vector, Y) in enumerate(dataloader_val):
-                # Move the variables to device.
-                g = g.to(device).float()
-                h = h.to(device).float()
-                rxn_vector = rxn_vector.to(device).float()
-                Y = Y.to(device).float()
-
-                # Run through the MPNN
-                Y_pred = model(h, g, rxn_vector)
-
-                under_w = underpred_loss_weights(Y, Y_pred.clone().detach())
-                over_w = overpred_loss_weights(Y, Y_pred.clone().detach())
-                w = (weight_hyp * under_w) + over_w
-
-                val_loss = torch.nn.BCELoss(weight=w, reduction='sum')(Y_pred, Y)
-
-                batch_val_loss.append(val_loss.cpu().detach().numpy())
-
-        # Finding the average batch validation loss for the epoch.
-        batch_val_loss = np.mean(batch_val_loss)
-        logger.debug('Mean Val Loss at epoch %d is %.4f', epoch, batch_val_loss)
-        # Adding that average loss to the tensorboard.
-        writer.add_scalar('Validation Loss / Epoch', batch_val_loss, epoch)
-        writer.close()
-
     # Testing on the test data after 100 epochs of training.
     logger.debug('Model Training Complete')
 
@@ -285,7 +242,7 @@ def main():
 
     model.eval()
     with torch.no_grad():
-        for i, (g, h, rxn_vector, Y) in enumerate(dataloader_test):
+        for i, (g, h, rxn_vector, nha, Y) in enumerate(dataloader_test):
             # Note that shuffle is off for this dataloader so that results can be
             # appended to the preds dataframe in correct order.
             batch_size = g.size()[0]
@@ -315,9 +272,49 @@ def main():
     # Save the predictions and losses into dataframe for saving.
     preds['Y_pred'] = test_preds
     preds['loss'] = test_losses
+    
+    ### QUALITY OF LIFE ADDITIONS ###
+    def truncate_Y_test(test_df, pred):
+        y = np.empty([0])
+        yp = np.empty([0])
+        pred = pred.reshape([len(test_df), -1])
+        for i in range(len(test_df)):
+            y_i = test_df.loc[i, 'Y']
+            nha = test_df.loc[i, 'nha']
+            y = np.concatenate((y, y_i[0:nha]))
+            yp = np.concatenate((yp, pred[i][0:nha]))
+        return y, yp
+    
+    def scoring(true, pred):
+
+        pred_simplified = np.zeros(len(pred))
+        for i in range(len(pred)):
+            if pred[i] > 0.5:
+                pred_simplified[i] = 1
+            else:
+                pass
+
+        true_p = np.mean(true) + 1e-10
+        pred_p = np.mean(pred_simplified) + 1e-10
+
+        tp = len(np.where(true + pred_simplified == 2)[0])
+        tn = len(np.where(true + pred_simplified == 0)[0])
+        fp = len(np.where(true - pred_simplified == -1)[0])
+        fn = len(np.where(pred_simplified - true == -1)[0])
+
+        #fit = -tp * np.log(pred_p) - tn * np.log(1 - pred_p) + fp * np.log(true_p) + fn * np.log(1 - true_p)
+        f1 = (2 * tp) / ((2 * tp) + fp + fn)
+        return tp, tn, fp, fn, f1
+    
+    score_y, score_yp = truncate_Y_test(preds, Y_pred.cpu().detach().numpy())
+    tp, tn, fp, fn, f1 = scoring(score_y, score_yp)
+    logger.debug('TEST F1-Score is %.4f', f1)
+    logger.debug('TEST metrics: tp = %d, tn = %d, fp = %d, fn = %d', tp, tn, fp, fn)
 
     preds_save_path = os.path.join(save_path, 'pred.pickle')
     preds.to_pickle(preds_save_path)
+    
+    ### END ###
 
     # Save the model to save path.
     model_save_path = os.path.join(save_path, 'model')
