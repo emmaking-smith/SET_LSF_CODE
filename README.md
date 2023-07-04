@@ -13,6 +13,7 @@ Code for the <sup>13</sup>C NMR pretraining and LSF finetuning as described in K
 * The molecules used in the prospective validation, pre- and post-Glasgow Subgraph Solver processing.
 * The open-source <sup>13</sup>C NMR data used in the pretraining.
 * Non-proprietary compounds data.
+* The full dataset has been registered with Pfizer under the name pfizer_LSF_NatureCommunications_PublicationDate.
 
 ### neural_nets & trained_models:
 * The Message Passing Neural Networks (MPNNs) used for pretraining, finetuning, and for running new molecules.
