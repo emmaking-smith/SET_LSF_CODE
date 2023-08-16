@@ -1,5 +1,6 @@
 # Predictive Minisci Late Stage Functionalization with Transfer Learning
 Code for the <sup>13</sup>C NMR pretraining and LSF finetuning as described in King-Smith *et al.*
+[![DOI](https://zenodo.org/badge/580175676.svg)](https://zenodo.org/badge/latestdoi/580175676)
 
 ## Getting Your Bearings
 ### set_lsf:
