@@ -1,5 +1,5 @@
 # Predictive Minisci Late Stage Functionalization with Transfer Learning
-Code for the <sup>13</sup>C NMR pretraining and LSF finetuning as described in ]King-Smith *et al.*](https://chemrxiv.org/engage/chemrxiv/article-details/64f7471679853bbd78275e41)
+Code for the <sup>13</sup>C NMR pretraining and LSF finetuning as described in [King-Smith *et al.*](https://chemrxiv.org/engage/chemrxiv/article-details/64f7471679853bbd78275e41)
 
 [![DOI](https://zenodo.org/badge/580175676.svg)](https://zenodo.org/badge/latestdoi/580175676)
 
