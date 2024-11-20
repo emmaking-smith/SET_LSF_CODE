@@ -91,6 +91,10 @@ def main():
     train_val_df, test_df = nmr.df_split(df, 0.1)
     train_df, val_df = nmr.df_split(train_val_df, 0.1)
 
+    train_df = train_df.reset_index(drop=True)
+    val_df = val_df.reset_index(drop=True)
+    test_df = test_df.reset_index(drop=True)
+    
     train_data = nmr.NMR_Dataset(train_df, longest_molecule, atom_list)
     val_data = nmr.NMR_Dataset(val_df, longest_molecule, atom_list)
     test_data = nmr.NMR_Dataset(test_df, longest_molecule, atom_list)
