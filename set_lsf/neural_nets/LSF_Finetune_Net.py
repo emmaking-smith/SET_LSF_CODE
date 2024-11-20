@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import logging
 logger = logging.getLogger(__name__)
-from NMR_Pretrain_Net import NMR_MPNN
+from neural_nets.NMR_4ll_Net import NMR_MPNN
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 class LSF_MPNN(nn.Module):
@@ -42,6 +42,7 @@ class LSF_MPNN(nn.Module):
         self.all_unique_atoms = all_unique_atoms
         self.rxn_features_length = rxn_features_length
         self.pretrain_path = pretrain_path
+        self.top_4_unique_atoms = self.all_unique_atoms[0:4] + [0]
 
         # Expanding the output of the NMR MPNN before concatenation with rxn vector.
         self.mpnn = NMR_MPNN(self.message_size, self.message_passes, self.all_unique_atoms)
@@ -61,9 +62,12 @@ class LSF_MPNN(nn.Module):
         self.message_func_triple = self.cutoff_mpnn[2]
         self.message_func_aromatic = self.cutoff_mpnn[3]
         self.message_func_universal = self.cutoff_mpnn[4]
+        
+        self.update_func_catchall = self.cutoff_mpnn[5]
+        self.update_func = self.cutoff_mpnn[6]
 
-        self.update_func = self.cutoff_mpnn[5]
-        self.update_func_universal = self.cutoff_mpnn[6]
+        self.update_func_catchall_universal = self.cutoff_mpnn[7]
+        self.update_func_universal = self.cutoff_mpnn[8]
 
         self.selectivity = nn.Sequential(
             nn.Linear(self.rxn_features_length + self.message_size, self.rxn_features_length + self.message_size),
@@ -108,23 +112,31 @@ class LSF_MPNN(nn.Module):
             gru_output = torch.empty_like(h_no_batches)
             gru_uni_output = torch.empty_like(h_no_batches)
 
-            for atom_type in torch.unique(atom_numbers):
+for atom_type in torch.unique(atom_numbers):
                 # Find the rows that correspond to that atom type.
                 h_atom_type_subset = h_no_batches.index_select(0, torch.where(atom_numbers == atom_type)[0])
                 m_atom_type_subset = m_no_batches.index_select(0, torch.where(atom_numbers == atom_type)[0])
                 m_uni_atom_type_subset = m_uni_no_batches.index_select(0, torch.where(atom_numbers == atom_type)[0])
 
-                idx = str(int(atom_type.detach().cpu().numpy()))
-                if idx == '5':
-                    idx = '15'
-                elif idx == '35' or idx == '53':
-                    idx = '17'
+                # If that atom type is in the top 4 atoms, run through the specific GRUs.
+                if atom_type in self.top_4_unique_atoms:
+                    idx = str(int(atom_type.detach().cpu().numpy()))
 
-                gru_atom_type_subset = self.update_func[idx](h_atom_type_subset, m_atom_type_subset)
-                gru_uni_atom_type_subset = self.update_func_universal[idx](h_atom_type_subset, m_uni_atom_type_subset)
+                    gru_atom_type_subset = self.update_func[idx](h_atom_type_subset, m_atom_type_subset)
+                    gru_uni_atom_type_subset = self.update_func_universal[idx](h_atom_type_subset,
+                                                                               m_uni_atom_type_subset)
 
-                gru_output[torch.where(atom_numbers == atom_type)[0]] = gru_atom_type_subset
-                gru_uni_output[torch.where(atom_numbers == atom_type)[0]] = gru_uni_atom_type_subset
+                    gru_output[torch.where(atom_numbers == atom_type)[0]] = gru_atom_type_subset
+                    gru_uni_output[torch.where(atom_numbers == atom_type)[0]] = gru_uni_atom_type_subset
+
+                # Else run that atom through the catchall GRU.
+                else:
+                    gru_atom_type_subset = self.update_func_catchall(h_atom_type_subset, m_atom_type_subset)
+                    gru_uni_atom_type_subset = self.update_func_catchall_universal(h_atom_type_subset,
+                                                                                   m_uni_atom_type_subset)
+
+                    gru_output[torch.where(atom_numbers == atom_type)[0]] = gru_atom_type_subset
+                    gru_uni_output[torch.where(atom_numbers == atom_type)[0]] = gru_uni_atom_type_subset
 
             # Adding the universal bond hidden states to the hidden states from the
             # single/double/triple/aromatic bond states.
