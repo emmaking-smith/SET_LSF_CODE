@@ -2,38 +2,19 @@
 A MPNN for finetuning on the LSF dataset.
 '''
 
-
 import torch
 import torch.nn as nn
 import logging
+
 logger = logging.getLogger(__name__)
 from neural_nets.NMR_4ll_Net import NMR_MPNN
+import collections
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
+import os
 
 class LSF_MPNN(nn.Module):
-    '''
-    The LSF selectivity prediction layers to be used in conjunction with NMR_Pretrain_Net module's
-    NMR_MPNN
-    ----
-    Args:
-        message_size (int):
-            The size of the final dimension from the output from NMR_MPNN.
 
-        rxn_features_length (int):
-            The length of a single atom's / molecule's reaction features.
-
-    Forward Args:
-        embedded_molecules (tensor):
-            The output from the NMR_MPNN network of size batch size x longest molecule.
-
-        rxn_vector (tensor):
-            The one hot encoded representations of the reaction conditions.
-
-    Returns:
-        output (tensor):
-            The predictions of site selectivity for each atom.
-            Output has size batch size x longest molecule x 1.
-    '''
     def __init__(self, message_size, message_passes, all_unique_atoms, rxn_features_length, pretrain_path):
         super(LSF_MPNN, self).__init__()
 
@@ -46,7 +27,7 @@ class LSF_MPNN(nn.Module):
 
         # Expanding the output of the NMR MPNN before concatenation with rxn vector.
         self.mpnn = NMR_MPNN(self.message_size, self.message_passes, self.all_unique_atoms)
-        self.mpnn.load_state_dict(torch.load(self.pretrain_path))
+        self.mpnn.load_state_dict(torch.load(self.pretrain_path, map_location=torch.device(device)))
 
         # Removing the last set of linear layers that predict 13C NMR.
         self.cutoff_mpnn = list(self.mpnn.children())[:-1]
@@ -62,7 +43,7 @@ class LSF_MPNN(nn.Module):
         self.message_func_triple = self.cutoff_mpnn[2]
         self.message_func_aromatic = self.cutoff_mpnn[3]
         self.message_func_universal = self.cutoff_mpnn[4]
-        
+
         self.update_func_catchall = self.cutoff_mpnn[5]
         self.update_func = self.cutoff_mpnn[6]
 
@@ -72,7 +53,7 @@ class LSF_MPNN(nn.Module):
         self.selectivity = nn.Sequential(
             nn.Linear(self.rxn_features_length + self.message_size, self.rxn_features_length + self.message_size),
             nn.ReLU(),
-            nn.Linear(self.rxn_features_length + self.message_size, 1),
+            nn.Linear(self.rxn_features_length + self.message_size, 1)
         )
 
     def forward(self, h, g, rxn_vector):
@@ -112,7 +93,7 @@ class LSF_MPNN(nn.Module):
             gru_output = torch.empty_like(h_no_batches)
             gru_uni_output = torch.empty_like(h_no_batches)
 
-for atom_type in torch.unique(atom_numbers):
+            for atom_type in torch.unique(atom_numbers):
                 # Find the rows that correspond to that atom type.
                 h_atom_type_subset = h_no_batches.index_select(0, torch.where(atom_numbers == atom_type)[0])
                 m_atom_type_subset = m_no_batches.index_select(0, torch.where(atom_numbers == atom_type)[0])
