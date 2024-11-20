@@ -139,6 +139,7 @@ def main():
 
     for epoch in range(epochs):
         batch_train_loss = []
+        batch_val_loss = []
         # Training
         pretrain_model.train()
         for i, (g, h, Y) in enumerate(dataloader_train):
